@@ -129,6 +129,18 @@
   body.has-bg nav button:hover{background:rgba(255,255,255,.5)}
   body.has-bg nav kbd{background:rgba(255,255,255,.7)}
   body.has-bg .empty,body.has-bg .item .when,body.has-bg nav .hint,body.has-bg .group h3 .sub{color:#555}
+  body.has-bg .dk{--text:#fff;--muted:rgba(255,255,255,.75);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.45)}
+  body.has-bg .dk .sync-box p,body.has-bg .dk .toggle,body.has-bg .dk .drop{color:rgba(255,255,255,.85)}
+  body.has-bg .dk .empty,body.has-bg .dk .item .when,body.has-bg nav.dk .hint,body.has-bg .dk .group h3 .sub,body.has-bg .dk .count,body.has-bg .dk .more,body.has-bg .dk .dow{color:rgba(255,255,255,.75)}
+  body.has-bg .dk .item .when.t,body.has-bg .dk .link{color:#b5cdff}body.has-bg .dk .item .when.late{color:#ff9d93}
+  body.has-bg .dk .group h3,body.has-bg .dk .item,body.has-bg .dk .cell,body.has-bg .dk .dow{border-color:rgba(255,255,255,.18)}
+  body.has-bg .dk .qa input,body.has-bg .dk .side input,body.has-bg .dk .sync-box input{color:#fff}body.has-bg .dk input::placeholder{color:rgba(255,255,255,.6)}
+  body.has-bg .dk .dow{background:transparent}body.has-bg .dk .cell.other{background:rgba(0,0,0,.15);color:rgba(255,255,255,.45)}body.has-bg .dk .cell:hover{background:rgba(255,255,255,.15)}
+  body.has-bg .dk .btn.sec,body.has-bg .dk .snd,body.has-bg .dk .cal-head button,body.has-bg nav.dk .notif,body.has-bg .dk .code{color:#fff;background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.3)}
+  body.has-bg .dk .snd.on{color:#ff9d93;border-color:#ff9d93;background:rgba(219,76,63,.25)}
+  body.has-bg nav.dk button.active{color:#ff9d93;background:rgba(255,255,255,.14)}body.has-bg nav.dk button:hover{background:rgba(255,255,255,.14)}body.has-bg nav.dk kbd{background:rgba(255,255,255,.25);color:#fff;border-color:transparent}
+  body.has-bg .dk .check{border-color:rgba(255,255,255,.7)}body.has-bg .dk .drop{border-color:rgba(255,255,255,.5)}body.has-bg .dk .del{color:rgba(255,255,255,.6)}
+  body.has-bg .dk .group h3.overdue{color:#ff9d93}
   @media (max-width:800px){body.has-bg nav{margin:0;border-radius:0 0 18px 18px;height:auto}}
 </style>
 </head>
@@ -148,7 +160,7 @@
       "report next mon"<br><br>
       <kbd>q</kbd> quick add &nbsp; <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> views
     </div>
-    <div class="hint" style="margin-top:4px;color:var(--muted);font-size:11px">v12</div>
+    <div class="hint" style="margin-top:4px;color:var(--muted);font-size:11px">v13</div>
     <button id="notif" class="notif">Enable reminders</button>
     <button id="syncBtn" class="notif">Sync: …</button>
   </nav>
@@ -565,8 +577,8 @@ const SOUNDS={
   fnelim:{name:'Fortnite · elimination',file:'sounds/fn-elim.mp3'},
   fnshield:{name:'Fortnite · shield break',file:'sounds/fn-shield.mp3'},
   fnvictory:{name:'Fortnite · Victory Royale',file:'sounds/fn-victory.mp3'},
-  d1engram:{name:'Destiny 1 · engram decrypt',file:'sounds/d1-engram.mp3'},
-  d1exoticdrop:{name:'Destiny 1 · exotic drop',file:'sounds/d1-exotic.mp3'},
+  
+  
   d1rare:{name:'Destiny 2 · rare engram',file:'sounds/d-rare.mp3'},
   d1legendary:{name:'Destiny 2 · legendary engram',file:'sounds/d-legendary.mp3'},
   d1exotic:{name:'Destiny 2 · exotic engram',file:'sounds/d-exotic.mp3'},
@@ -596,10 +608,13 @@ window.SoundAPI={list:()=>Object.entries(SOUNDS).map(([id,s])=>({id,name:s.name,
 Media.all().then(rows=>{rows.forEach(([k,v])=>{if(k.startsWith('snd:')&&v&&v.blob){SOUNDS[k.slice(4)]={name:v.name||'Custom',custom:true,file:URL.createObjectURL(v.blob)};}});
   const saved=localStorage.getItem(SNDKEY);if(saved&&SOUNDS[saved])soundId=saved;}).catch(()=>{});
 window.BgAPI={url:null,
-  apply(blob){if(this.url)URL.revokeObjectURL(this.url);if(!blob){this.url=null;document.body.classList.remove('has-bg');document.body.style.removeProperty('--bgimg');return;}this.url=URL.createObjectURL(blob);document.body.style.setProperty('--bgimg',`url("${this.url}")`);document.body.classList.add('has-bg');},
+  apply(blob){if(this.url)URL.revokeObjectURL(this.url);if(!blob){this.url=null;this.img=null;document.body.classList.remove('has-bg');document.querySelectorAll('.dk').forEach(e=>e.classList.remove('dk'));document.body.style.removeProperty('--bgimg');return;}this.url=URL.createObjectURL(blob);document.body.style.setProperty('--bgimg',`url("${this.url}")`);document.body.classList.add('has-bg');this.img=null;this.contrast();},
+  img:null,
+  contrast(){if(!this.url)return;const done=img=>{this.img=img;const W=64,H=Math.max(8,Math.round(W*innerHeight/innerWidth));const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');const sc=Math.max(W/img.width,H/img.height),dw=img.width*sc,dh=img.height*sc;x.drawImage(img,(W-dw)/2,(H-dh)/2,dw,dh);const d=x.getImageData(0,0,W,H).data;const lum=r=>{let t=0,n=0;const x0=Math.max(0,Math.floor(r.left/innerWidth*W)),x1=Math.min(W,Math.ceil(r.right/innerWidth*W)),y0=Math.max(0,Math.floor(r.top/innerHeight*H)),y1=Math.min(H,Math.ceil(r.bottom/innerHeight*H));for(let y=y0;y<y1;y++)for(let xx=x0;xx<x1;xx++){const i=(y*W+xx)*4;t+=(0.2126*d[i]+0.7152*d[i+1]+0.0722*d[i+2])/255;n++;}return n?t/n:1;};[document.querySelector('nav'),document.getElementById('main')].forEach(el=>{const r=el.getBoundingClientRect();el.classList.toggle('dk',lum(r)<0.5);});};if(this.img)return done(this.img);const img=new Image();img.onload=()=>done(img);img.src=this.url;},
   async set(file){await Media.set('bg',file);this.apply(file);},
   async clear(){await Media.del('bg');this.apply(null);}};
 Media.get('bg').then(b=>{if(b)window.BgAPI.apply(b);}).catch(()=>{});
+let _rz;addEventListener('resize',()=>{clearTimeout(_rz);_rz=setTimeout(()=>window.BgAPI.contrast(),200);});
 document.addEventListener('keydown',e=>{
   if((e.metaKey||e.ctrlKey)&&e.key==='z'&&!e.target.matches('input')){e.preventDefault();doUndo();return;}
   if(e.target.matches('input'))return;
