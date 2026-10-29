@@ -101,6 +101,9 @@
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
   .toast button{background:none;border:0;color:#ffb3ad;font-weight:600;font-size:13px;cursor:pointer;padding:0}
   .toast .close{color:#aaa;font-weight:400}
+  .snd-grid{display:flex;flex-wrap:wrap;gap:8px}
+  .snd{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer}
+  .snd.on{border-color:var(--accent);background:#fdecea;color:var(--accent);font-weight:600}
 </style>
 </head>
 <body>
@@ -447,7 +450,11 @@ function renderSync(){
       <p><button class="btn sec" id="syncCopy">Copy link</button> <button class="btn sec" id="syncLeave">Stop syncing on this device</button></p>
       ${st.lastSync?`<p style="color:var(--muted);font-size:12px">Last update: ${new Date(st.lastSync).toLocaleTimeString()}</p>`:''}</div>`;
   }
-  main.innerHTML=`<h2>Sync</h2>${box}`;
+  const snd=window.SoundAPI;const cur=snd.get();
+  const soundBox=`<div class="sync-box" style="margin-top:16px"><h3>Completion sound</h3><p>Tap one to hear it; it's saved on this device.</p>
+    <div class="snd-grid">${snd.list().map(o=>`<button class="snd${o.id===cur?' on':''}" data-snd="${o.id}">${o.name}</button>`).join('')}</div></div>`;
+  main.innerHTML=`<h2>Sync &amp; settings</h2>${box}${soundBox}`;
+  main.querySelectorAll('.snd').forEach(b=>b.onclick=()=>{snd.set(b.dataset.snd);main.querySelectorAll('.snd').forEach(x=>x.classList.toggle('on',x===b));});
   const api=window.SyncAPI||{};
   const q=id=>document.getElementById(id);
   if(q('syncCreate'))q('syncCreate').onclick=()=>api.create&&api.create();
@@ -501,15 +508,31 @@ function doUndo(){if(!undoFn)return;const f=undoFn;hideToast();f();}
 document.getElementById('toastUndo').onclick=doUndo;
 document.getElementById('toastClose').onclick=hideToast;
 let actx=null;
-function ding(){
-  try{
-    actx=actx||new (window.AudioContext||window.webkitAudioContext)();
-    if(actx.state==='suspended')actx.resume();
-    const t=actx.currentTime,g=actx.createGain();g.connect(actx.destination);
-    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.25,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+0.45);
-    [[880,0],[1318.5,0.09]].forEach(([f,d])=>{const o=actx.createOscillator();o.type='sine';o.frequency.value=f;o.connect(g);o.start(t+d);o.stop(t+0.5);});
-  }catch(e){}
-}
+const SOUNDS={
+  chime:{name:'Chime',play:(c,t)=>{tone(c,t,880,0,.45,'sine',.25);tone(c,t,1318.5,.09,.4,'sine',.2);}},
+  pop:{name:'Pop',play:(c,t)=>{const o=c.createOscillator(),g=env(c,t,.3,.12);o.type='sine';o.frequency.setValueAtTime(600,t);o.frequency.exponentialRampToValueAtTime(150,t+.12);o.connect(g);o.start(t);o.stop(t+.15);}},
+  ding:{name:'Ding',play:(c,t)=>{tone(c,t,1760,0,.6,'sine',.18);tone(c,t,3520,0,.25,'sine',.05);}},
+  success:{name:'Success jingle',play:(c,t)=>{[523.25,659.25,783.99,1046.5].forEach((f,i)=>tone(c,t,f,i*.08,.3,'triangle',.18));}},
+  bubble:{name:'Bubble',play:(c,t)=>{const o=c.createOscillator(),g=env(c,t,.25,.18);o.type='sine';o.frequency.setValueAtTime(300,t);o.frequency.exponentialRampToValueAtTime(900,t+.15);o.connect(g);o.start(t);o.stop(t+.2);}},
+  click:{name:'Click',play:(c,t)=>{noise(c,t,.03,.3,2500);}},
+  marimba:{name:'Marimba',play:(c,t)=>{tone(c,t,659.25,0,.35,'sine',.22);tone(c,t,1318.5,0,.12,'sine',.08);tone(c,t,987.77,.12,.4,'sine',.2);}},
+  fnchest:{name:'Fortnite · chest open',play:(c,t)=>{[392,523.25,659.25,783.99,1046.5,1318.5].forEach((f,i)=>tone(c,t,f,i*.055,.5,'triangle',.14));for(let i=0;i<8;i++)tone(c,t,2000+Math.random()*2500,.2+i*.045,.18,'sine',.05);}},
+  fnpickup:{name:'Fortnite · item pickup',play:(c,t)=>{const o=c.createOscillator(),g=env(c,t,.22,.14);o.type='square';o.frequency.setValueAtTime(700,t);o.frequency.exponentialRampToValueAtTime(1400,t+.08);o.connect(g);o.start(t);o.stop(t+.15);tone(c,t,1760,.09,.18,'triangle',.12);}},
+  fnelim:{name:'Fortnite · elimination',play:(c,t)=>{noise(c,t,.12,.35,1200);tone(c,t,220,0,.35,'sawtooth',.12);tone(c,t,440,.05,.3,'square',.08);tone(c,t,1174.66,.12,.3,'triangle',.14);}},
+  d1engram:{name:'Destiny 1 · engram pickup',play:(c,t)=>{const o=c.createOscillator(),g=env(c,t,.18,.5);o.type='sine';o.frequency.setValueAtTime(500,t);o.frequency.exponentialRampToValueAtTime(2000,t+.35);o.connect(g);o.start(t);o.stop(t+.5);tone(c,t,1567.98,.3,.5,'sine',.15);tone(c,t,2093,.36,.5,'sine',.1);}},
+  d1level:{name:'Destiny 1 · level up',play:(c,t)=>{[587.33,880,1174.66].forEach((f,i)=>tone(c,t,f,i*.14,.9,'sine',.16));tone(c,t,1760,.42,1.1,'sine',.1);tone(c,t,2349.3,.42,.9,'triangle',.05);}},
+  d1ghost:{name:'Destiny 1 · Ghost scan',play:(c,t)=>{for(let i=0;i<5;i++)tone(c,t,1500+i*180,i*.07,.1,'sine',.1);tone(c,t,2400,.38,.45,'sine',.12);}},
+  off:{name:'Off',play:()=>{}},
+};
+const SNDKEY='sched.sound';
+let soundId=localStorage.getItem(SNDKEY)||'chime';if(!SOUNDS[soundId])soundId='chime';
+function ctx(){actx=actx||new (window.AudioContext||window.webkitAudioContext)();if(actx.state==='suspended')actx.resume();return actx;}
+function env(c,t,peak,len){const g=c.createGain();g.connect(c.destination);g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+len);return g;}
+function tone(c,t,f,delay,len,type,vol){const o=c.createOscillator();o.type=type||'sine';o.frequency.value=f;o.connect(env(c,t+delay,vol||.2,len));o.start(t+delay);o.stop(t+delay+len+.05);}
+function noise(c,t,len,vol,cut){const n=c.sampleRate*len,b=c.createBuffer(1,n,c.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1;const src=c.createBufferSource();src.buffer=b;const f=c.createBiquadFilter();f.type='lowpass';f.frequency.value=cut||2000;src.connect(f);f.connect(env(c,t,vol,len));src.start(t);}
+function playSound(id){try{const c=ctx();(SOUNDS[id]||SOUNDS.chime).play(c,c.currentTime);}catch(e){}}
+function ding(){playSound(soundId);}
+window.SoundAPI={list:()=>Object.entries(SOUNDS).map(([id,s])=>({id,name:s.name})),get:()=>soundId,set(id){if(!SOUNDS[id])return;soundId=id;localStorage.setItem(SNDKEY,id);playSound(id);}};
 document.addEventListener('keydown',e=>{
   if((e.metaKey||e.ctrlKey)&&e.key==='z'&&!e.target.matches('input')){e.preventDefault();doUndo();return;}
   if(e.target.matches('input'))return;
