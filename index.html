@@ -122,6 +122,7 @@
       "report next mon"<br><br>
       <kbd>q</kbd> quick add &nbsp; <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> views
     </div>
+    <div class="hint" style="margin-top:4px;color:var(--muted);font-size:11px">v7</div>
     <button id="notif" class="notif">Enable reminders</button>
     <button id="syncBtn" class="notif">Sync: …</button>
   </nav>
@@ -571,7 +572,10 @@ function checkReminders(){
 }
 refreshNotifBtn();checkReminders();setInterval(checkReminders,30*1000);
 window.renderSyncBtn();
-if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+if('serviceWorker' in navigator&&location.protocol!=='file:'){
+  navigator.serviceWorker.register('sw.js').then(reg=>{reg.update();setInterval(()=>reg.update(),10*60*1000);}).catch(()=>{});
+  let reloading=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(navigator.serviceWorker.controller&&!reloading){reloading=true;location.reload();}});
+}
 </script>
 <script type="module">
 /* ---------- cross-device sync (Firebase Firestore) ---------- */
