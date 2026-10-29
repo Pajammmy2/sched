@@ -122,7 +122,7 @@
       "report next mon"<br><br>
       <kbd>q</kbd> quick add &nbsp; <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> views
     </div>
-    <div class="hint" style="margin-top:4px;color:var(--muted);font-size:11px">v7</div>
+    <div class="hint" style="margin-top:4px;color:var(--muted);font-size:11px">v8</div>
     <button id="notif" class="notif">Enable reminders</button>
     <button id="syncBtn" class="notif">Sync: …</button>
   </nav>
@@ -517,12 +517,14 @@ const SOUNDS={
   bubble:{name:'Bubble',play:(c,t)=>{const o=c.createOscillator(),g=env(c,t,.25,.18);o.type='sine';o.frequency.setValueAtTime(300,t);o.frequency.exponentialRampToValueAtTime(900,t+.15);o.connect(g);o.start(t);o.stop(t+.2);}},
   click:{name:'Click',play:(c,t)=>{noise(c,t,.03,.3,2500);}},
   marimba:{name:'Marimba',play:(c,t)=>{tone(c,t,659.25,0,.35,'sine',.22);tone(c,t,1318.5,0,.12,'sine',.08);tone(c,t,987.77,.12,.4,'sine',.2);}},
-  fnchest:{name:'Fortnite · chest open',play:(c,t)=>{[392,523.25,659.25,783.99,1046.5,1318.5].forEach((f,i)=>tone(c,t,f,i*.055,.5,'triangle',.14));for(let i=0;i<8;i++)tone(c,t,2000+Math.random()*2500,.2+i*.045,.18,'sine',.05);}},
-  fnpickup:{name:'Fortnite · item pickup',play:(c,t)=>{const o=c.createOscillator(),g=env(c,t,.22,.14);o.type='square';o.frequency.setValueAtTime(700,t);o.frequency.exponentialRampToValueAtTime(1400,t+.08);o.connect(g);o.start(t);o.stop(t+.15);tone(c,t,1760,.09,.18,'triangle',.12);}},
-  fnelim:{name:'Fortnite · elimination',play:(c,t)=>{noise(c,t,.12,.35,1200);tone(c,t,220,0,.35,'sawtooth',.12);tone(c,t,440,.05,.3,'square',.08);tone(c,t,1174.66,.12,.3,'triangle',.14);}},
-  d1engram:{name:'Destiny 1 · engram pickup',play:(c,t)=>{const o=c.createOscillator(),g=env(c,t,.18,.5);o.type='sine';o.frequency.setValueAtTime(500,t);o.frequency.exponentialRampToValueAtTime(2000,t+.35);o.connect(g);o.start(t);o.stop(t+.5);tone(c,t,1567.98,.3,.5,'sine',.15);tone(c,t,2093,.36,.5,'sine',.1);}},
-  d1level:{name:'Destiny 1 · level up',play:(c,t)=>{[587.33,880,1174.66].forEach((f,i)=>tone(c,t,f,i*.14,.9,'sine',.16));tone(c,t,1760,.42,1.1,'sine',.1);tone(c,t,2349.3,.42,.9,'triangle',.05);}},
-  d1ghost:{name:'Destiny 1 · Ghost scan',play:(c,t)=>{for(let i=0;i<5;i++)tone(c,t,1500+i*180,i*.07,.1,'sine',.1);tone(c,t,2400,.38,.45,'sine',.12);}},
+  fnchest:{name:'Fortnite · chest open',file:'sounds/fn-chest.mp3'},
+  fnelim:{name:'Fortnite · elimination',file:'sounds/fn-elim.mp3'},
+  fnshield:{name:'Fortnite · shield break',file:'sounds/fn-shield.mp3'},
+  fnvictory:{name:'Fortnite · Victory Royale',file:'sounds/fn-victory.mp3'},
+  d1rare:{name:'Destiny · rare engram',file:'sounds/d-rare.mp3'},
+  d1legendary:{name:'Destiny · legendary engram',file:'sounds/d-legendary.mp3'},
+  d1exotic:{name:'Destiny · exotic engram',file:'sounds/d-exotic.mp3'},
+  d1prime:{name:'Destiny · prime engram',file:'sounds/d-prime.mp3'},
   off:{name:'Off',play:()=>{}},
 };
 const SNDKEY='sched.sound';
@@ -531,7 +533,9 @@ function ctx(){actx=actx||new (window.AudioContext||window.webkitAudioContext)()
 function env(c,t,peak,len){const g=c.createGain();g.connect(c.destination);g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+len);return g;}
 function tone(c,t,f,delay,len,type,vol){const o=c.createOscillator();o.type=type||'sine';o.frequency.value=f;o.connect(env(c,t+delay,vol||.2,len));o.start(t+delay);o.stop(t+delay+len+.05);}
 function noise(c,t,len,vol,cut){const n=c.sampleRate*len,b=c.createBuffer(1,n,c.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1;const src=c.createBufferSource();src.buffer=b;const f=c.createBiquadFilter();f.type='lowpass';f.frequency.value=cut||2000;src.connect(f);f.connect(env(c,t,vol,len));src.start(t);}
-function playSound(id){try{const c=ctx();(SOUNDS[id]||SOUNDS.chime).play(c,c.currentTime);}catch(e){}}
+const clips={};function clip(src){if(!clips[src]){const a=new Audio(src);a.preload='auto';clips[src]=a;}return clips[src];}
+Object.values(SOUNDS).forEach(s=>{if(s.file)clip(s.file);});
+function playSound(id){try{const s=SOUNDS[id]||SOUNDS.chime;if(s.file){const a=clip(s.file);a.currentTime=0;a.play().catch(()=>{});return;}const c=ctx();s.play(c,c.currentTime);}catch(e){}}
 function ding(){playSound(soundId);}
 window.SoundAPI={list:()=>Object.entries(SOUNDS).map(([id,s])=>({id,name:s.name})),get:()=>soundId,set(id){if(!SOUNDS[id])return;soundId=id;localStorage.setItem(SNDKEY,id);playSound(id);}};
 document.addEventListener('keydown',e=>{
