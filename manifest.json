@@ -1,0 +1,9 @@
+{
+  "name": "Sched",
+  "short_name": "Sched",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#fafafa",
+  "theme_color": "#db4c3f",
+  "icons": [{"src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}]
+}

@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sched</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#db4c3f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Sched">
+<link rel="apple-touch-icon" href="icon.png">
+<style>
+  :root{--bg:#fafafa;--panel:#fff;--line:#e6e6e6;--text:#202020;--muted:#808080;--accent:#db4c3f;--accent-soft:#fdeceb;--chip:#eef4ff;--chip-text:#2b5cd6;--today:#db4c3f;--radius:10px}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+  .app{display:flex;height:100vh}
+  nav{width:210px;background:#f7f7f7;border-right:1px solid var(--line);padding:18px 12px;display:flex;flex-direction:column;gap:4px}
+  nav h1{font-size:15px;margin:0 8px 14px;letter-spacing:.3px}
+  nav button{all:unset;cursor:pointer;padding:8px 10px;border-radius:7px;display:flex;justify-content:space-between;align-items:center}
+  nav button:hover{background:#ececec}
+  nav button.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+  nav .count{font-size:12px;color:var(--muted)}
+  nav .hint{margin-top:auto;font-size:12px;color:var(--muted);line-height:1.6;padding:8px}
+  nav .notif{justify-content:center;border:1px solid var(--line);background:#fff;font-size:12px;margin-top:8px}
+  nav .notif.on{color:#2a7a2a;border-color:#bfe3bf;background:#f1faf1}
+  nav kbd{background:#fff;border:1px solid #ddd;border-radius:4px;padding:0 5px;font-family:inherit}
+  main{flex:1;overflow:auto;padding:28px 40px;max-width:1100px}
+  h2{font-size:22px;margin:0 0 14px}
+  /* quick add */
+  .qa{position:relative;margin-bottom:22px}
+  .qa input{width:100%;padding:12px 14px;font-size:15px;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);outline:none;font-family:inherit}
+  .qa input:focus{border-color:#bbb;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+  .qa .preview{display:flex;gap:8px;align-items:center;min-height:26px;margin-top:8px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+  .chip{background:var(--chip);color:var(--chip-text);padding:3px 9px;border-radius:999px;font-weight:600;font-size:12px}
+  .chip.none{background:#f0f0f0;color:var(--muted);font-weight:500}
+  .preview .title{font-weight:500;color:var(--text)}
+  .preview .title b{background:#fff2ad;border-radius:3px;padding:0 2px;font-weight:500;color:#6b5600}
+  /* items */
+  .group{margin-bottom:26px}
+  .group h3{font-size:14px;margin:0 0 6px;padding-bottom:6px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:baseline}
+  .group h3 .sub{font-weight:400;color:var(--muted);font-size:12px}
+  .group h3.overdue{color:var(--accent)}
+  .item{display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid #f0f0f0}
+  .item:hover .del{opacity:1}
+  .check{width:18px;height:18px;border:1.5px solid #999;border-radius:50%;cursor:pointer;flex-shrink:0;display:grid;place-items:center;transition:.15s}
+  .check:hover{background:#eee}
+  .item.done .check{background:#999;border-color:#999}
+  .item.done .title{text-decoration:line-through;color:var(--muted)}
+  .item .title{flex:1;cursor:text}
+  .item .title input{width:100%;font:inherit;border:1px solid #ccc;border-radius:5px;padding:3px 6px;outline:none}
+  .item .when{font-size:12px;color:var(--muted);white-space:nowrap}
+  .item .when.t{color:var(--chip-text)}
+  .item .when.late{color:var(--accent)}
+  .del{all:unset;cursor:pointer;color:#bbb;opacity:0;padding:2px 6px;font-size:16px;line-height:1}
+  .del:hover{color:var(--accent)}
+  .empty{color:var(--muted);padding:20px 0;font-size:13px}
+  .toggle{all:unset;cursor:pointer;color:var(--muted);font-size:12px;text-decoration:underline}
+  /* calendar */
+  .cal-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .cal-head h2{margin:0;flex:1}
+  .cal-head button{all:unset;cursor:pointer;padding:5px 10px;border:1px solid var(--line);border-radius:6px;background:#fff}
+  .cal-head button:hover{background:#f3f3f3}
+  .cal-wrap{display:flex;gap:20px;align-items:flex-start}
+  .cal{flex:1;display:grid;grid-template-columns:repeat(7,1fr);border-left:1px solid var(--line);border-top:1px solid var(--line);background:#fff;border-radius:6px;overflow:hidden}
+  .dow{padding:6px;font-size:11px;text-transform:uppercase;color:var(--muted);text-align:center;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:#fafafa}
+  .cell{min-height:92px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:5px;cursor:pointer;font-size:12px;display:flex;flex-direction:column;gap:2px}
+  .cell:hover{background:#fafafa}
+  .cell.other{background:#fbfbfb;color:#bbb}
+  .cell.sel{outline:2px solid var(--accent);outline-offset:-2px}
+  .cell .d{font-weight:600;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;margin-bottom:2px}
+  .cell.today .d{background:var(--today);color:#fff}
+  .ev{background:var(--chip);color:var(--chip-text);border-radius:4px;padding:1px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px}
+  .ev.done{opacity:.45;text-decoration:line-through}
+  .ev.allday{background:#eaf7ea;color:#2a7a2a}
+  .more{font-size:11px;color:var(--muted)}
+  .side{width:300px;background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:14px;flex-shrink:0}
+  .side h3{margin:0 0 10px;font-size:14px}
+  .side .qa input{font-size:13px;padding:9px 11px}
+  .side .qa{margin-bottom:10px}
+  @media (max-width:800px){
+    .app{flex-direction:column;height:auto;min-height:100vh}
+    nav{width:100%;flex-direction:row;align-items:center;gap:6px;padding:10px 12px;border-right:0;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:2}
+    nav h1{margin:0 10px 0 0}
+    nav button{padding:6px 10px}
+    nav .hint{display:none}
+    main{padding:16px}.cal-wrap{flex-direction:column}.side{width:100%}
+    .cell{min-height:64px;padding:3px}.ev{font-size:10px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <nav>
+    <h1>Sched</h1>
+    <button data-view="inbox">Inbox <span class="count" id="c-inbox"></span></button>
+    <button data-view="upcoming">Upcoming <span class="count" id="c-upcoming"></span></button>
+    <button data-view="calendar">Calendar</button>
+    <div class="hint">
+      Type dates naturally:<br>
+      "9:30 am tmr meeting"<br>
+      "dentist fri 2pm"<br>
+      "pay rent 1st"<br>
+      "gym in 3 days"<br>
+      "report next mon"<br><br>
+      <kbd>q</kbd> quick add &nbsp; <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> views
+    </div>
+    <button id="notif" class="notif">Enable reminders</button>
+  </nav>
+  <main id="main"></main>
+</div>
+
+<script>
+/* ---------- storage ---------- */
+const KEY='sched.items.v1';
+// first-run starter tasks (local time); ignored once anything has been saved
+const SEED=[
+  ['PHIL 202 midterm',2026,11,20],
+  ['302 midterm',2026,10,29],
+  ['302 midterm',2026,12,1],
+  ['A lab',2026,10,31],
+  ['do more apps'],
+  ['interview',2026,10,28,9,0],
+  ['interview',2026,10,28,18,45],
+];
+let items=localStorage.getItem(KEY)?JSON.parse(localStorage.getItem(KEY)):SEED.map(([title,y,m,d,h,mi],i)=>({
+  id:'seed'+i,title,
+  date:y?new Date(y,m-1,d,h||0,mi||0).toISOString():null,
+  allDay:!!y&&h===undefined,done:false,created:Date.now()+i
+}));
+const save=()=>localStorage.setItem(KEY,JSON.stringify(items));
+const uid=()=>Math.random().toString(36).slice(2,10);
+
+/* ---------- date helpers ---------- */
+const DAYS=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+const MONTHS=['january','february','march','april','may','june','july','august','september','october','november','december'];
+const pad=n=>String(n).padStart(2,'0');
+const ymd=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const startOfDay=d=>{const x=new Date(d);x.setHours(0,0,0,0);return x};
+const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+const sameDay=(a,b)=>ymd(a)===ymd(b);
+const fmtTime=d=>{let h=d.getHours(),m=d.getMinutes(),ap=h>=12?'PM':'AM';h=h%12||12;return m?`${h}:${pad(m)} ${ap}`:`${h} ${ap}`};
+function fmtDay(d){
+  const t=startOfDay(new Date()),x=startOfDay(d),diff=Math.round((x-t)/864e5);
+  if(diff===0)return'Today';if(diff===1)return'Tomorrow';if(diff===-1)return'Yesterday';
+  const o={weekday:'short',month:'short',day:'numeric'};
+  if(x.getFullYear()!==t.getFullYear())o.year='numeric';
+  return d.toLocaleDateString(undefined,o);
+}
+const fmtWhen=it=>{if(!it.date)return'';const d=new Date(it.date);return fmtDay(d)+(it.allDay?'':' · '+fmtTime(d))};
+
+/* ---------- natural-language parser ---------- */
+// Returns {title, date (Date|null), allDay, tokens:[{start,end}]}
+function parse(raw, base=new Date()){
+  let text=raw;
+  const tokens=[];
+  const lower=()=>text.toLowerCase();
+  let date=null, time=null, hasDate=false;
+  const take=(m)=>{ // remove match from text, remember span
+    const s=m.index,e=m.index+m[0].length;
+    tokens.push({start:s,end:e,text:m[0]});
+    text=text.slice(0,s)+' '.repeat(e-s)+text.slice(e);
+  };
+  const toDay=d=>{d=startOfDay(d);return d};
+  let m;
+
+  // --- time first: "9:30 am", "9am", "at 5", "17:00", "noon", "midnight"
+  const timeRe=/(?:\bat\s+)?\b(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)\b|(?:\bat\s+)?\b([01]?\d|2[0-3]):([0-5]\d)\b|\b(noon|midnight)\b|\bat\s+(\d{1,2})\b(?!\s*(?:st|nd|rd|th|\/|-|\d))/i;
+  if((m=timeRe.exec(text))){
+    if(m[6]){time=m[6].toLowerCase()==='noon'?[12,0]:[0,0];}
+    else if(m[1]){let h=+m[1],mi=+(m[2]||0);const ap=m[3][0].toLowerCase();if(ap==='p'&&h<12)h+=12;if(ap==='a'&&h===12)h=0;time=[h,mi];}
+    else if(m[4]){time=[+m[4],+m[5]];}
+    else if(m[7]){let h=+m[7];if(h>=1&&h<=6)h+=12;time=[h,0];} // "at 5" -> 5pm, "at 9" -> 9am
+    take(m);
+  }
+
+  // --- relative words
+  const rel=[
+    [/\b(?:on\s+)?(today|tod|tonight)\b/i,()=>toDay(base)],
+    [/\b(?:on\s+)?(tomorrow|tmrw|tmr|tom)\b/i,()=>toDay(addDays(base,1))],
+    [/\b(day after tomorrow|day after tmr)\b/i,()=>toDay(addDays(base,2))],
+    [/\byesterday\b/i,()=>toDay(addDays(base,-1))],
+    [/\bnext\s+week\b/i,()=>{const d=toDay(base);const add=((8-d.getDay())%7)||7;return addDays(d,add)}],
+    [/\bthis\s+weekend\b/i,()=>{const d=toDay(base);return addDays(d,(6-d.getDay()+7)%7)}],
+    [/\bnext\s+weekend\b/i,()=>{const d=toDay(base);return addDays(d,((6-d.getDay()+7)%7)+7)}],
+    [/\bnext\s+month\b/i,()=>{const d=toDay(base);return new Date(d.getFullYear(),d.getMonth()+1,1)}],
+    [/\bend of (?:the )?month\b/i,()=>{const d=toDay(base);return new Date(d.getFullYear(),d.getMonth()+1,0)}],
+    [/\bin\s+(\d+|a|an)\s+(day|week|month|hour|min(?:ute)?)s?\b/i,(mm)=>{
+      const n=/^a/.test(mm[1])?1:+mm[1];const u=mm[2].toLowerCase();
+      if(u.startsWith('hour')){const d=new Date(base);d.setHours(d.getHours()+n);time=[d.getHours(),d.getMinutes()];return toDay(d)}
+      if(u.startsWith('min')){const d=new Date(base);d.setMinutes(d.getMinutes()+n);time=[d.getHours(),d.getMinutes()];return toDay(d)}
+      if(u==='day')return toDay(addDays(base,n));
+      if(u==='week')return toDay(addDays(base,7*n));
+      const d=toDay(base);d.setMonth(d.getMonth()+n);return d;
+    }],
+  ];
+  for(const [re,fn] of rel){ if(!hasDate&&(m=re.exec(text))){date=fn(m);hasDate=true;take(m);} }
+
+  // --- weekday: "mon", "next friday", "on tuesday", "this sat"
+  if(!hasDate){
+    const dayRe=/\b(?:(next|this)\s+)?(?:on\s+)?(sun|mon|tue|tues|wed|thu|thur|thurs|fri|sat)(?:day|sday|nesday|rsday|urday)?\b/i;
+    if((m=dayRe.exec(text))){
+      const idx=DAYS.findIndex(d=>d.startsWith(m[2].toLowerCase().slice(0,3)));
+      const d=toDay(base);let add=(idx-d.getDay()+7)%7;
+      if(m[1]&&m[1].toLowerCase()==='next'&&add===0)add=7; // "next mon" on a Monday -> +7
+      if(!m[1]&&add===0&&time&&(base.getHours()*60+base.getMinutes())>(time[0]*60+time[1]))add=7; // same-day time passed
+      date=addDays(d,add);hasDate=true;take(m);
+    }
+  }
+
+  // --- month name: "jan 5", "5 jan", "january 5th 2026"
+  if(!hasDate){
+    const mon='(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)(?:[a-z]*)';
+    const r1=new RegExp(`\\b(?:on\\s+)?${mon}\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?\\b`,'i');
+    const r2=new RegExp(`\\b(?:on\\s+)?(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?${mon}\\.?(?:,?\\s+(\\d{4}))?\\b`,'i');
+    let mi,dd,yy;
+    if((m=r1.exec(text))){mi=m[1];dd=m[2];yy=m[3];}
+    else if((m=r2.exec(text))){mi=m[2];dd=m[1];yy=m[3];}
+    if(m){
+      const mIdx=MONTHS.findIndex(x=>x.startsWith(mi.toLowerCase().slice(0,3)));
+      let d=new Date(yy?+yy:base.getFullYear(),mIdx,+dd);
+      if(!yy&&d<toDay(base))d.setFullYear(d.getFullYear()+1);
+      date=d;hasDate=true;take(m);
+    }
+  }
+
+  // --- numeric: "1/5", "01/05/2026", "2026-01-05"
+  if(!hasDate){
+    if((m=/\b(\d{4})-(\d{2})-(\d{2})\b/.exec(text))){date=new Date(+m[1],+m[2]-1,+m[3]);hasDate=true;take(m);}
+    else if((m=/\b(?:on\s+)?(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/.exec(text))){
+      let y=m[3]?(+m[3]<100?2000+ +m[3]:+m[3]):base.getFullYear();
+      let d=new Date(y,+m[1]-1,+m[2]);
+      if(!m[3]&&d<toDay(base))d.setFullYear(y+1);
+      date=d;hasDate=true;take(m);
+    }
+  }
+
+  // --- bare ordinal day: "the 15th", "on 1st"
+  if(!hasDate){
+    if((m=/\b(?:on\s+|the\s+)?(\d{1,2})(st|nd|rd|th)\b/i.exec(text))){
+      let d=new Date(base.getFullYear(),base.getMonth(),+m[1]);
+      if(d<toDay(base))d.setMonth(d.getMonth()+1);
+      date=d;hasDate=true;take(m);
+    }
+  }
+
+  // time without date -> today (or tomorrow if already passed)
+  if(time&&!hasDate){
+    let d=toDay(base);
+    if((base.getHours()*60+base.getMinutes())>(time[0]*60+time[1]))d=addDays(d,1);
+    date=d;
+  }
+  if(date&&time){date=new Date(date);date.setHours(time[0],time[1],0,0);}
+
+  // "tonight" with no time -> 8pm
+  const title=text.replace(/\s+/g,' ').replace(/^\s*(at|on|-|,)\s+/i,'').replace(/\s+(at|on|-|,)\s*$/i,'').trim();
+  return {title, date:date||null, allDay:!!date&&!time, tokens};
+}
+
+/* ---------- state ---------- */
+let view=localStorage.getItem('sched.view')||'upcoming';
+let calMonth=startOfDay(new Date());calMonth.setDate(1);
+let selDay=ymd(new Date());
+let showDone=false;
+
+function addItem(raw, defaultDate){
+  const p=parse(raw);
+  if(!p.title)return null;
+  let date=p.date,allDay=p.allDay;
+  if(!date&&defaultDate){date=new Date(defaultDate);allDay=true;}
+  const it={id:uid(),title:p.title,date:date?date.toISOString():null,allDay,done:false,created:Date.now()};
+  items.push(it);save();render();return it;
+}
+function updateItem(it, raw){
+  const p=parse(raw);
+  if(!p.title){return;}
+  it.title=p.title;
+  if(p.date){it.date=p.date.toISOString();it.allDay=p.allDay;}
+  save();render();
+}
+
+/* ---------- rendering ---------- */
+const main=document.getElementById('main');
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function quickAddHTML(id,placeholder){
+  return `<div class="qa"><input id="${id}" placeholder="${placeholder}" autocomplete="off"><div class="preview" id="${id}-pv"></div></div>`;
+}
+function wireQuickAdd(id, defaultDate){
+  const inp=document.getElementById(id),pv=document.getElementById(id+'-pv');
+  if(!inp)return;
+  const upd=()=>{
+    const v=inp.value;
+    if(!v.trim()){pv.innerHTML=defaultDate?`<span class="chip none">${fmtDay(new Date(defaultDate))}</span>`:'';return;}
+    const p=parse(v);
+    // highlight tokens
+    let html='',i=0;
+    const toks=[...p.tokens].sort((a,b)=>a.start-b.start);
+    for(const t of toks){html+=esc(v.slice(i,t.start))+'<b>'+esc(v.slice(t.start,t.end))+'</b>';i=t.end;}
+    html+=esc(v.slice(i));
+    const d=p.date||(defaultDate?new Date(defaultDate):null);
+    const chip=d?`<span class="chip">${fmtDay(d)}${p.date&&!p.allDay?' · '+fmtTime(d):''}</span>`:`<span class="chip none">No date → Inbox</span>`;
+    pv.innerHTML=chip+`<span class="title">${html||'<i>untitled</i>'}</span>`;
+  };
+  inp.addEventListener('input',upd);
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'&&inp.value.trim()){const it=addItem(inp.value,defaultDate);if(it){const n=document.getElementById(id);if(n){n.focus();}}}
+    if(e.key==='Escape'){inp.value='';upd();inp.blur();}
+  });
+  upd();
+}
+
+function itemHTML(it,opts={}){
+  const d=it.date?new Date(it.date):null;
+  let when='';
+  if(d&&!opts.hideDay)when=fmtDay(d)+(it.allDay?'':' · '+fmtTime(d));
+  else if(d&&!it.allDay)when=fmtTime(d);
+  else if(d&&it.allDay&&!opts.hideDay)when=fmtDay(d);
+  const late=d&&!it.done&&d<(it.allDay?startOfDay(new Date()):new Date());
+  return `<div class="item ${it.done?'done':''}" data-id="${it.id}">
+    <div class="check" title="Complete">${it.done?'<svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 5l3 3 5-6" stroke="#fff" stroke-width="1.6" fill="none"/></svg>':''}</div>
+    <div class="title">${esc(it.title)}</div>
+    ${when?`<span class="when ${late?'late':(d&&!it.allDay?'t':'')}">${when}</span>`:''}
+    <button class="del" title="Delete">×</button>
+  </div>`;
+}
+function groupHTML(title,sub,list,opts={},cls=''){
+  if(!list.length&&!opts.showEmpty)return'';
+  return `<div class="group"><h3 class="${cls}">${title}${sub?`<span class="sub">${sub}</span>`:''}</h3>${list.length?list.map(i=>itemHTML(i,opts)).join(''):'<div class="empty">Nothing here</div>'}</div>`;
+}
+const sortItems=(a,b)=>{
+  if(a.date&&b.date){if(a.allDay!==b.allDay)return a.allDay?-1:1;return new Date(a.date)-new Date(b.date)}
+  return a.created-b.created;
+};
+const visible=list=>list.filter(i=>showDone||!i.done).sort(sortItems);
+
+function renderInbox(){
+  const undated=visible(items.filter(i=>!i.date));
+  const dated=visible(items.filter(i=>i.date));
+  main.innerHTML=`<h2>Inbox</h2>${quickAddHTML('qa','Add a task… e.g. "call mom tmr 6pm" or just "buy milk"')}
+    ${groupHTML('No date',`${undated.length}`,undated,{showEmpty:true})}
+    ${groupHTML('Scheduled',`${dated.length} · also in Upcoming & Calendar`,dated,{showEmpty:true})}
+    <button class="toggle" id="tg">${showDone?'Hide':'Show'} completed</button>`;
+  wireQuickAdd('qa');
+}
+function renderUpcoming(){
+  const today=startOfDay(new Date());
+  const dated=items.filter(i=>i.date);
+  const overdue=visible(dated.filter(i=>!i.done&&startOfDay(new Date(i.date))<today));
+  let html=`<h2>Upcoming</h2>${quickAddHTML('qa','Add… e.g. "9:30 am tmr meeting with Sam"')}`;
+  html+=groupHTML('Overdue','',overdue,{},'overdue');
+  for(let n=0;n<14;n++){
+    const day=addDays(today,n);
+    const list=visible(dated.filter(i=>sameDay(new Date(i.date),day)));
+    const label=fmtDay(day);
+    const sub=n<2?day.toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'}):'';
+    html+=groupHTML(label,sub,list,{hideDay:true,showEmpty:n<2});
+  }
+  const later=visible(dated.filter(i=>startOfDay(new Date(i.date))>=addDays(today,14)));
+  html+=groupHTML('Later','',later,{});
+  html+=`<button class="toggle" id="tg">${showDone?'Hide':'Show'} completed</button>`;
+  main.innerHTML=html;wireQuickAdd('qa');
+}
+function renderCalendar(){
+  const today=new Date();
+  const first=new Date(calMonth);const start=addDays(first,-first.getDay());
+  let cells='';
+  for(let i=0;i<42;i++){
+    const d=addDays(start,i);const key=ymd(d);
+    const evs=visible(items.filter(it=>it.date&&ymd(new Date(it.date))===key));
+    const shown=evs.slice(0,3);
+    cells+=`<div class="cell ${d.getMonth()!==calMonth.getMonth()?'other':''} ${sameDay(d,today)?'today':''} ${key===selDay?'sel':''}" data-day="${key}">
+      <div class="d">${d.getDate()}</div>
+      ${shown.map(e=>`<div class="ev ${e.allDay?'allday':''} ${e.done?'done':''}" title="${esc(e.title)}">${e.allDay?'':fmtTime(new Date(e.date))+' '}${esc(e.title)}</div>`).join('')}
+      ${evs.length>3?`<div class="more">+${evs.length-3} more</div>`:''}
+    </div>`;
+  }
+  const sel=new Date(selDay+'T00:00:00');
+  const dayItems=visible(items.filter(it=>it.date&&ymd(new Date(it.date))===selDay));
+  main.innerHTML=`<div class="cal-head">
+      <h2>${calMonth.toLocaleDateString(undefined,{month:'long',year:'numeric'})}</h2>
+      <button id="prev">‹</button><button id="todayBtn">Today</button><button id="next">›</button>
+    </div>
+    <div class="cal-wrap">
+      <div class="cal">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>`<div class="dow">${d}</div>`).join('')}${cells}</div>
+      <div class="side">
+        <h3>${fmtDay(sel)} <span style="font-weight:400;color:var(--muted)">${sel.toLocaleDateString(undefined,{weekday:'long'})}</span></h3>
+        ${quickAddHTML('qa','Add to this day… e.g. "lunch 12:30"')}
+        ${dayItems.length?dayItems.map(i=>itemHTML(i,{hideDay:true})).join(''):'<div class="empty">No events</div>'}
+        <div style="margin-top:10px"><button class="toggle" id="tg">${showDone?'Hide':'Show'} completed</button></div>
+      </div>
+    </div>`;
+  wireQuickAdd('qa',sel);
+  document.getElementById('prev').onclick=()=>{calMonth.setMonth(calMonth.getMonth()-1);render()};
+  document.getElementById('next').onclick=()=>{calMonth.setMonth(calMonth.getMonth()+1);render()};
+  document.getElementById('todayBtn').onclick=()=>{calMonth=startOfDay(new Date());calMonth.setDate(1);selDay=ymd(new Date());render()};
+  main.querySelectorAll('.cell').forEach(c=>c.onclick=()=>{selDay=c.dataset.day;const d=new Date(selDay+'T00:00:00');if(d.getMonth()!==calMonth.getMonth()){calMonth=new Date(d.getFullYear(),d.getMonth(),1)}render();document.getElementById('qa').focus()});
+}
+
+function render(){
+  const focused=document.activeElement&&document.activeElement.id==='qa'?document.activeElement.value:null;
+  localStorage.setItem('sched.view',view);
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
+  ({inbox:renderInbox,upcoming:renderUpcoming,calendar:renderCalendar})[view]();
+  document.getElementById('c-inbox').textContent=items.filter(i=>!i.done).length||'';
+  const today=startOfDay(new Date());
+  document.getElementById('c-upcoming').textContent=items.filter(i=>i.date&&!i.done&&startOfDay(new Date(i.date))<=today).length||'';
+  const tg=document.getElementById('tg');if(tg)tg.onclick=()=>{showDone=!showDone;render()};
+  if(focused!==null){const q=document.getElementById('qa');if(q){q.focus();}}
+}
+
+/* ---------- events ---------- */
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{view=b.dataset.view;render()});
+main.addEventListener('click',e=>{
+  const row=e.target.closest('.item');if(!row)return;
+  const it=items.find(i=>i.id===row.dataset.id);if(!it)return;
+  if(e.target.closest('.check')){it.done=!it.done;save();render();}
+  else if(e.target.closest('.del')){items=items.filter(i=>i!==it);save();render();}
+  else if(e.target.classList.contains('title')&&!e.target.querySelector('input')){
+    const t=e.target;const inp=document.createElement('input');inp.value=it.title;t.textContent='';t.appendChild(inp);inp.focus();inp.select();
+    const finish=ok=>{if(ok&&inp.value.trim())updateItem(it,inp.value);else render();};
+    inp.onkeydown=ev=>{if(ev.key==='Enter')finish(true);if(ev.key==='Escape')finish(false);};
+    inp.onblur=()=>finish(true);
+  }
+});
+document.addEventListener('keydown',e=>{
+  if(e.target.matches('input'))return;
+  if(e.key==='q'){e.preventDefault();const q=document.getElementById('qa');if(q)q.focus();}
+  if(e.key==='1'){view='inbox';render()}if(e.key==='2'){view='upcoming';render()}if(e.key==='3'){view='calendar';render()}
+});
+render();
+
+/* ---------- reminders (fire when the task's time arrives) ---------- */
+const NKEY='sched.notified.v1';
+let notified=JSON.parse(localStorage.getItem(NKEY)||'{}');
+const notifBtn=document.getElementById('notif');
+function refreshNotifBtn(){
+  if(!('Notification' in window)){notifBtn.textContent='Reminders unsupported here';notifBtn.disabled=true;return;}
+  const on=Notification.permission==='granted';
+  notifBtn.classList.toggle('on',on);
+  notifBtn.textContent=on?'Reminders on':(Notification.permission==='denied'?'Reminders blocked in browser':'Enable reminders');
+}
+notifBtn.onclick=async()=>{if(!('Notification' in window))return;await Notification.requestPermission();refreshNotifBtn();if(Notification.permission==='granted')notify('Reminders on','You\'ll get a ping when a task\'s time arrives (while Sched is open or installed).');};
+async function notify(title,body,tag){
+  try{
+    const reg=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration();
+    if(reg&&reg.showNotification){reg.showNotification(title,{body,tag,icon:'icon.png',badge:'icon.png'});}
+    else new Notification(title,{body,tag});
+  }catch(e){console.warn(e)}
+}
+function checkReminders(){
+  if(!('Notification' in window)||Notification.permission!=='granted')return;
+  const now=Date.now();
+  for(const it of items){
+    if(it.done||!it.date||it.allDay||notified[it.id])continue;
+    const t=new Date(it.date).getTime();
+    if(t<=now&&now-t<10*60*1000){notified[it.id]=1;notify(it.title,fmtWhen(it),it.id);}
+  }
+  localStorage.setItem(NKEY,JSON.stringify(notified));
+}
+refreshNotifBtn();checkReminders();setInterval(checkReminders,30*1000);
+if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
