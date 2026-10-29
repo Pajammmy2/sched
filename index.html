@@ -90,10 +90,11 @@
   .side .qa{margin-bottom:10px}
   @media (max-width:800px){
     .app{flex-direction:column;height:auto;min-height:100vh}
-    nav{width:100%;flex-direction:row;align-items:center;gap:6px;padding:10px 12px;border-right:0;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:2}
+    nav{width:100%;flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px;padding:10px 12px;border-right:0;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:2}
     nav h1{margin:0 10px 0 0}
     nav button{padding:6px 10px}
     nav .hint{display:none}
+    nav .notif{font-size:11px;padding:5px 8px;margin-top:0}
     main{padding:16px}.cal-wrap{flex-direction:column}.side{width:100%}
     .cell{min-height:64px;padding:3px}.ev{font-size:10px}
   }
@@ -104,6 +105,31 @@
   .snd-grid{display:flex;flex-wrap:wrap;gap:8px}
   .snd{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer}
   .snd.on{border-color:var(--accent);background:#fdecea;color:var(--accent);font-weight:600}
+  .drop{border:1.5px dashed #ccc;border-radius:10px;padding:14px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer;margin-top:8px}
+  .drop.over{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+  .drop input{display:none}
+  .snd .x{margin-left:8px;color:#bbb;font-weight:400}
+  .snd .x:hover{color:var(--accent)}
+  .bgprev{display:flex;align-items:center;gap:12px;margin-top:10px}
+  .bgprev img{width:96px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+  body.has-bg{background:var(--bgimg) center/cover fixed no-repeat}
+  body.has-bg nav,body.has-bg .sync-box,body.has-bg .side,body.has-bg .cal,body.has-bg .qa input,body.has-bg .group,body.has-bg .toast{background:rgba(255,255,255,.62);backdrop-filter:blur(22px) saturate(1.5);-webkit-backdrop-filter:blur(22px) saturate(1.5);border-color:rgba(255,255,255,.55);box-shadow:0 8px 32px rgba(0,0,0,.10)}
+  body.has-bg nav{border-right:0;margin:12px 0 12px 12px;border-radius:18px;height:calc(100vh - 24px);box-sizing:border-box}
+  body.has-bg .group{border-radius:16px;padding:12px 16px}
+  body.has-bg .group h3{border-bottom-color:rgba(0,0,0,.08)}
+  body.has-bg .item{border-bottom-color:rgba(0,0,0,.06)}
+  body.has-bg .qa input{border-radius:14px}
+  body.has-bg .cal{border-radius:14px;overflow:hidden}
+  body.has-bg .cell,body.has-bg .dow{border-color:rgba(0,0,0,.08)}
+  body.has-bg .cell.other{background:rgba(255,255,255,.25)}
+  body.has-bg .cell:hover{background:rgba(255,255,255,.35)}
+  body.has-bg .toast{color:var(--text)}body.has-bg .toast button{color:var(--accent)}body.has-bg .toast .close{color:#777}
+  body.has-bg .snd,body.has-bg nav .notif,body.has-bg .cal-head button,body.has-bg .btn.sec,body.has-bg .code{background:rgba(255,255,255,.6);border-color:rgba(255,255,255,.7)}
+  body.has-bg nav button.active{background:rgba(219,76,63,.14)}
+  body.has-bg nav button:hover{background:rgba(255,255,255,.5)}
+  body.has-bg nav kbd{background:rgba(255,255,255,.7)}
+  body.has-bg .empty,body.has-bg .item .when,body.has-bg nav .hint,body.has-bg .group h3 .sub{color:#555}
+  @media (max-width:800px){body.has-bg nav{margin:0;border-radius:0 0 18px 18px;height:auto}}
 </style>
 </head>
 <body>
@@ -122,7 +148,7 @@
       "report next mon"<br><br>
       <kbd>q</kbd> quick add &nbsp; <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> views
     </div>
-    <div class="hint" style="margin-top:4px;color:var(--muted);font-size:11px">v8</div>
+    <div class="hint" style="margin-top:4px;color:var(--muted);font-size:11px">v9</div>
     <button id="notif" class="notif">Enable reminders</button>
     <button id="syncBtn" class="notif">Sync: …</button>
   </nav>
@@ -452,10 +478,28 @@ function renderSync(){
       ${st.lastSync?`<p style="color:var(--muted);font-size:12px">Last update: ${new Date(st.lastSync).toLocaleTimeString()}</p>`:''}</div>`;
   }
   const snd=window.SoundAPI;const cur=snd.get();
+  const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const soundBox=`<div class="sync-box" style="margin-top:16px"><h3>Completion sound</h3><p>Tap one to hear it; it's saved on this device.</p>
-    <div class="snd-grid">${snd.list().map(o=>`<button class="snd${o.id===cur?' on':''}" data-snd="${o.id}">${o.name}</button>`).join('')}</div></div>`;
+    <div class="snd-grid">${snd.list().map(o=>`<button class="snd${o.id===cur?' on':''}" data-snd="${o.id}">${esc(o.name)}${o.custom?'<span class="x" title="Remove">×</span>':''}</button>`).join('')}</div>
+    <h3 style="margin-top:16px">Add your own</h3><p>Pick an mp3 (or drop it on the box), give it a name.</p>
+    <input id="sndName" placeholder="Sound name" style="margin-bottom:8px">
+    <label class="drop" id="sndDrop">Drop an mp3 here or click to choose<input type="file" id="sndFile" accept="audio/*"></label></div>
+    <div class="sync-box"><h3>Background photo</h3><p>Drop a photo and the whole app turns into frosted glass over it. Saved on this device.</p>
+    <label class="drop" id="bgDrop">Drop a photo here or click to choose<input type="file" id="bgFile" accept="image/*"></label>
+    ${window.BgAPI.url?`<div class="bgprev"><img src="${window.BgAPI.url}"><button class="btn sec" id="bgClear">Remove photo</button></div>`:''}</div>`;
   main.innerHTML=`<h2>Sync &amp; settings</h2>${box}${soundBox}`;
-  main.querySelectorAll('.snd').forEach(b=>b.onclick=()=>{snd.set(b.dataset.snd);main.querySelectorAll('.snd').forEach(x=>x.classList.toggle('on',x===b));});
+  main.querySelectorAll('.snd').forEach(b=>b.onclick=async e=>{
+    if(e.target.classList.contains('x')){if(confirm('Remove this sound?')){await snd.remove(b.dataset.snd);renderSync();}return;}
+    snd.set(b.dataset.snd);main.querySelectorAll('.snd').forEach(x=>x.classList.toggle('on',x===b));});
+  const wire=(dropId,inputId,onFile)=>{const d=document.getElementById(dropId),f=document.getElementById(inputId);
+    f.onchange=()=>{if(f.files[0])onFile(f.files[0]);};
+    d.ondragover=e=>{e.preventDefault();d.classList.add('over');};d.ondragleave=()=>d.classList.remove('over');
+    d.ondrop=e=>{e.preventDefault();d.classList.remove('over');const file=e.dataTransfer.files[0];if(file)onFile(file);};};
+  wire('sndDrop','sndFile',async file=>{if(!file.type.startsWith('audio/')&&!/\.(mp3|m4a|wav|ogg)$/i.test(file.name)){alert('Please pick an audio file');return;}
+    if(file.size>3*1024*1024){alert('Keep sounds under 3 MB');return;}
+    const name=document.getElementById('sndName').value.trim()||file.name.replace(/\.[^.]+$/,'');await snd.add(file,name);renderSync();});
+  wire('bgDrop','bgFile',async file=>{if(!file.type.startsWith('image/')){alert('Please pick an image');return;}await window.BgAPI.set(file);renderSync();});
+  const bc=document.getElementById('bgClear');if(bc)bc.onclick=async()=>{await window.BgAPI.clear();renderSync();};
   const api=window.SyncAPI||{};
   const q=id=>document.getElementById(id);
   if(q('syncCreate'))q('syncCreate').onclick=()=>api.create&&api.create();
@@ -521,12 +565,20 @@ const SOUNDS={
   fnelim:{name:'Fortnite · elimination',file:'sounds/fn-elim.mp3'},
   fnshield:{name:'Fortnite · shield break',file:'sounds/fn-shield.mp3'},
   fnvictory:{name:'Fortnite · Victory Royale',file:'sounds/fn-victory.mp3'},
-  d1rare:{name:'Destiny · rare engram',file:'sounds/d-rare.mp3'},
-  d1legendary:{name:'Destiny · legendary engram',file:'sounds/d-legendary.mp3'},
-  d1exotic:{name:'Destiny · exotic engram',file:'sounds/d-exotic.mp3'},
-  d1prime:{name:'Destiny · prime engram',file:'sounds/d-prime.mp3'},
+  d1engram:{name:'Destiny 1 · engram decrypt',file:'sounds/d1-engram.mp3'},
+  d1exoticdrop:{name:'Destiny 1 · exotic drop',file:'sounds/d1-exotic.mp3'},
+  d1rare:{name:'Destiny 2 · rare engram',file:'sounds/d-rare.mp3'},
+  d1legendary:{name:'Destiny 2 · legendary engram',file:'sounds/d-legendary.mp3'},
+  d1exotic:{name:'Destiny 2 · exotic engram',file:'sounds/d-exotic.mp3'},
+  d1prime:{name:'Destiny 2 · prime engram',file:'sounds/d-prime.mp3'},
   off:{name:'Off',play:()=>{}},
 };
+const Media=(()=>{
+  const open=()=>new Promise((res,rej)=>{const r=indexedDB.open('sched-media',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});
+  const tx=async(mode,fn)=>{const db=await open();return new Promise((res,rej)=>{const t=db.transaction('kv',mode);const q=fn(t.objectStore('kv'));t.oncomplete=()=>res(q&&q.result);t.onerror=()=>rej(t.error);});};
+  return{get:k=>tx('readonly',st=>st.get(k)),set:(k,v)=>tx('readwrite',st=>st.put(v,k)),del:k=>tx('readwrite',st=>st.delete(k)),
+    all:async()=>{const db=await open();return new Promise((res,rej)=>{const st=db.transaction('kv','readonly').objectStore('kv');const out=[];const c=st.openCursor();c.onsuccess=()=>{const cur=c.result;if(cur){out.push([cur.key,cur.value]);cur.continue();}else res(out);};c.onerror=()=>rej(c.error);});}};
+})();
 const SNDKEY='sched.sound';
 let soundId=localStorage.getItem(SNDKEY)||'chime';if(!SOUNDS[soundId])soundId='chime';
 function ctx(){actx=actx||new (window.AudioContext||window.webkitAudioContext)();if(actx.state==='suspended')actx.resume();return actx;}
@@ -535,9 +587,19 @@ function tone(c,t,f,delay,len,type,vol){const o=c.createOscillator();o.type=type
 function noise(c,t,len,vol,cut){const n=c.sampleRate*len,b=c.createBuffer(1,n,c.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1;const src=c.createBufferSource();src.buffer=b;const f=c.createBiquadFilter();f.type='lowpass';f.frequency.value=cut||2000;src.connect(f);f.connect(env(c,t,vol,len));src.start(t);}
 const clips={};function clip(src){if(!clips[src]){const a=new Audio(src);a.preload='auto';clips[src]=a;}return clips[src];}
 Object.values(SOUNDS).forEach(s=>{if(s.file)clip(s.file);});
-function playSound(id){try{const s=SOUNDS[id]||SOUNDS.chime;if(s.file){const a=clip(s.file);a.currentTime=0;a.play().catch(()=>{});return;}const c=ctx();s.play(c,c.currentTime);}catch(e){}}
+function stopAll(){Object.values(clips).forEach(a=>{try{a.pause();a.currentTime=0;}catch(e){}});if(actx){try{actx.close();}catch(e){}actx=null;}}
+function playSound(id){try{stopAll();const s=SOUNDS[id]||SOUNDS.chime;if(s.file){const a=clip(s.file);a.currentTime=0;a.play().catch(()=>{});return;}const c=ctx();s.play(c,c.currentTime);}catch(e){}}
 function ding(){playSound(soundId);}
-window.SoundAPI={list:()=>Object.entries(SOUNDS).map(([id,s])=>({id,name:s.name})),get:()=>soundId,set(id){if(!SOUNDS[id])return;soundId=id;localStorage.setItem(SNDKEY,id);playSound(id);}};
+window.SoundAPI={list:()=>Object.entries(SOUNDS).map(([id,s])=>({id,name:s.name,custom:!!s.custom})),get:()=>soundId,set(id){if(!SOUNDS[id])return;soundId=id;localStorage.setItem(SNDKEY,id);playSound(id);},
+  async add(file,name){const id='c_'+Date.now();await Media.set('snd:'+id,{name,blob:file});SOUNDS[id]={name,custom:true,file:URL.createObjectURL(file)};clip(SOUNDS[id].file);this.set(id);return id;},
+  async remove(id){if(!SOUNDS[id]||!SOUNDS[id].custom)return;await Media.del('snd:'+id);delete SOUNDS[id];if(soundId===id)this.set('chime');}};
+Media.all().then(rows=>{rows.forEach(([k,v])=>{if(k.startsWith('snd:')&&v&&v.blob){SOUNDS[k.slice(4)]={name:v.name||'Custom',custom:true,file:URL.createObjectURL(v.blob)};}});
+  const saved=localStorage.getItem(SNDKEY);if(saved&&SOUNDS[saved])soundId=saved;}).catch(()=>{});
+window.BgAPI={url:null,
+  apply(blob){if(this.url)URL.revokeObjectURL(this.url);if(!blob){this.url=null;document.body.classList.remove('has-bg');document.body.style.removeProperty('--bgimg');return;}this.url=URL.createObjectURL(blob);document.body.style.setProperty('--bgimg',`url("${this.url}")`);document.body.classList.add('has-bg');},
+  async set(file){await Media.set('bg',file);this.apply(file);},
+  async clear(){await Media.del('bg');this.apply(null);}};
+Media.get('bg').then(b=>{if(b)window.BgAPI.apply(b);}).catch(()=>{});
 document.addEventListener('keydown',e=>{
   if((e.metaKey||e.ctrlKey)&&e.key==='z'&&!e.target.matches('input')){e.preventDefault();doUndo();return;}
   if(e.target.matches('input'))return;
